@@ -69,7 +69,7 @@ fn main() {
     let api_key = urlencoding::encode(&api_key);
 
     // clipboard
-    let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
+    let mut ctx: Option<ClipboardContext> = ClipboardProvider::new().ok();
 
     loop {
         // IMDB search text
@@ -145,9 +145,15 @@ fn main() {
                     .unwrap();
 
                 // and save it to the clipboard
-                ctx.set_contents(results.remove(selection)).unwrap();
+                if let Some(ctx) = ctx.as_mut() {
+                    if let Err(err) = ctx.set_contents(results.remove(selection)) {
+                        eprintln!("Failed to set clipboard: {err}");
+                    }
 
-                println!("Copied to clipboard\n");
+                    println!("Copied to clipboard");
+                }
+
+                println!();
             }
             Err(err) => {
                 // json parse error or request error
