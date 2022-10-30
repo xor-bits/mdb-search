@@ -23,11 +23,10 @@ struct SearchData {
 #[serde(rename_all = "camelCase")]
 struct SearchResult {
     id: String,
-    //result_type: String,
+    result_type: String,
     //image: String,
     title: String,
-    //description: String,
-    year: Option<String>,
+    description: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -37,9 +36,15 @@ struct TitleData {
     year: String,
 }
 
+struct Movie {
+    id: String,
+    title: String,
+    desc: String,
+}
+
 //
 
-fn main() {
+fn main() -> ! {
     // collect the IMDB api key
     // read from fs
     let api_key = std::fs::read_to_string(API_KEY_FILE)
@@ -91,28 +96,27 @@ fn main() {
             "https://imdb-api.com/en/API/SearchMovie/{api_key}/{url_q}",
         ))
         .and_then(|r| r.json::<SearchData>())
-        .map(|mut data| {
-            // further processing to collect years
-            for result in data.results.iter_mut().flat_map(|i| i.iter_mut()) {
-                let id_url = urlencoding::encode(&result.id);
-                result.year = match reqwest::blocking::get(format!(
-                    "https://imdb-api.com/en/API/Title/{api_key}/{id_url}"
-                ))
-                .and_then(|r| r.json::<TitleData>())
-                {
-                    Ok(TitleData { year }) => Some(year),
-                    Err(_) => None,
-                };
-            }
-            data
+        .map(|data| {
+            (
+                data.error_message,
+                data.results
+                    .into_iter()
+                    .flat_map(|i| i.into_iter())
+                    .filter(|s| s.result_type == "Movie")
+                    .map(|s| Movie {
+                        id: s.id,
+                        title: s.title,
+                        desc: s.description,
+                    })
+                    .collect::<Vec<_>>(),
+            )
         });
 
         match res {
-            Ok(SearchData {
-                results,
-                error_message,
-            }) => {
+            Ok((error_message, res)) => {
                 bp.finish_with_message("Done");
+
+                // res.sort_by(|a, b| a.title.cmp(&b.title));
 
                 // api error
                 if !error_message.is_empty() {
@@ -121,17 +125,13 @@ fn main() {
                 }
 
                 // convert results to a list
-                let mut results: Vec<String> = results
-                    .into_iter()
-                    .flat_map(|i| i.into_iter())
-                    .map(|SearchResult { title, year, .. }| {
+                let results: Vec<_> = res
+                    .iter()
+                    .map(|m| {
                         format!(
-                            "{title}{}",
-                            if let Some(year) = year {
-                                format!(" ({year})")
-                            } else {
-                                "".to_string()
-                            }
+                            "{}\n - {}...",
+                            m.title,
+                            m.desc.chars().take(100).collect::<String>()
                         )
                     })
                     .collect();
@@ -144,9 +144,21 @@ fn main() {
                     .interact()
                     .unwrap();
 
-                // and save it to the clipboard
+                // and save title + year to the clipboard
                 if let Some(ctx) = ctx.as_mut() {
-                    if let Err(err) = ctx.set_contents(results.remove(selection)) {
+                    let Movie { id, title, .. } = &res[selection];
+
+                    let year = match reqwest::blocking::get(format!(
+                        "https://imdb-api.com/en/API/Title/{api_key}/{}",
+                        urlencoding::encode(id)
+                    ))
+                    .and_then(|r| r.json::<TitleData>())
+                    {
+                        Ok(TitleData { year }) => format!(" ({year})"),
+                        Err(_) => "".to_string(),
+                    };
+
+                    if let Err(err) = ctx.set_contents(format!("{title}{year}")) {
                         eprintln!("Failed to set clipboard: {err}");
                     }
 
