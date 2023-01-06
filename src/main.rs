@@ -146,21 +146,21 @@ fn main() -> ! {
                 if let Some(ctx) = ctx.as_mut() {
                     let Movie { id, title, .. } = &res[selection];
 
-                    let year = match reqwest::blocking::get(format!(
+                    let name = match reqwest::blocking::get(format!(
                         "https://imdb-api.com/en/API/Title/{api_key}/{}",
                         urlencoding::encode(id)
                     ))
                     .and_then(|r| r.json::<TitleData>())
                     {
-                        Ok(TitleData { year }) => format!(" ({year})"),
-                        Err(_) => "".to_string(),
+                        Ok(TitleData { year }) => format!("{title} ({year})"),
+                        Err(_) => title.clone(),
                     };
 
-                    if let Err(err) = ctx.set_contents(format!("{title}{year}")) {
+                    if let Err(err) = ctx.set_contents(name.clone()) {
                         eprintln!("Failed to set clipboard: {err}");
                     }
 
-                    println!("Copied to clipboard");
+                    println!("'{name}' Copied to clipboard");
                 }
 
                 println!();
