@@ -6,10 +6,6 @@ use std::time::Duration;
 
 //
 
-const API_KEY_FILE: &str = ".imdb-key";
-
-//
-
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SearchData {
@@ -46,30 +42,31 @@ struct Movie {
 
 fn main() -> ! {
     // collect the IMDB api key
-    // read from fs
-    let api_key = std::fs::read_to_string(API_KEY_FILE)
-        .ok()
-        .unwrap_or_else(|| {
-            // read from stdin
-            let key = Password::with_theme(&ColorfulTheme::default())
-                .with_prompt("IMDB API key")
-                .interact()
-                .unwrap();
+    let entry = keyring::Entry::new("imdb-search", "none");
 
-            // ask to save
-            if dialoguer::Confirm::with_theme(&ColorfulTheme::default())
-                .with_prompt(format!("Save it to {}?", API_KEY_FILE))
-                .interact()
-                .unwrap()
-            {
-                // save
-                if let Err(err) = std::fs::write(API_KEY_FILE, &key) {
-                    eprintln!("Failed to write: {err}");
-                }
+    // get the saved API key
+    let api_key = entry.get_password().unwrap_or_else(|_| {
+        // read from stdin
+        let key = Password::with_theme(&ColorfulTheme::default())
+            .with_prompt("IMDB API key")
+            .interact()
+            .unwrap();
+
+        // ask to save
+        if dialoguer::Confirm::with_theme(&ColorfulTheme::default())
+            .with_prompt("Save it to the keyring?")
+            .interact()
+            .unwrap()
+        {
+            // save
+            if let Err(err) = entry.set_password(&key) {
+                eprintln!("Failed to write: {err}");
             }
+        }
 
-            key
-        });
+        key
+    });
+
     // url encode it, because it will be used in requests
     let api_key = urlencoding::encode(&api_key);
 
@@ -108,6 +105,7 @@ fn main() -> ! {
                         title: s.title,
                         desc: s.description,
                     })
+                    .take(10)
                     .collect::<Vec<_>>(),
             )
         });

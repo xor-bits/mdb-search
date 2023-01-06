@@ -6,10 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dialoguer = { version = "0.10.2", features = ["completion", "fuzzy-select", "history"] }
-indicatif = "0.17.1"
-reqwest = { version = "0.11.12", features = ["blocking", "json"] }
-urlencoding = "2.1.2"
-serde = { version = "1.0.147", features = ["derive"] }
-serde_json = "1.0.87"
-clipboard = "0.5.0"
+dialoguer = { version = "0.10", features = [
+    "completion",
+    "fuzzy-select",
+    "history",
+] }
+indicatif = "0.17"
+reqwest = { version = "0.11", features = ["blocking", "json"] }
+urlencoding = "2.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+clipboard = "0.5"
+keyring = "1.2"
