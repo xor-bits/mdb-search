@@ -4,7 +4,7 @@ use dialoguer::{
     theme::{ColorfulTheme, Theme},
     Confirm, FuzzySelect, Password,
 };
-use std::fmt;
+use std::{env, fmt};
 
 //
 
@@ -36,35 +36,58 @@ pub trait MovieDatabase {
 }
 
 impl dyn MovieDatabase {
+    fn key_prompt(name: &'static str, theme: &dyn Theme) -> String {
+        Password::with_theme(theme)
+            .with_prompt(format!("{name} API key"))
+            .interact()
+            .unwrap()
+    }
+
+    pub fn try_api_key(&self, theme: &dyn Theme) -> keyring::Result<String> {
+        if let Ok(api_key_from_env) = env::var(format!("{}_API_KEY", self.name())) {
+            return Ok(api_key_from_env);
+        }
+
+        // collect the (T|I)MDB api key
+        let entry = keyring::Entry::new_with_target(
+            "default",
+            &format!("mdb-search-{}", self.name()),
+            "none",
+        )?;
+
+        match entry.get_password() {
+            Err(keyring::Error::NoEntry) => {}
+            other => return other,
+        };
+
+        let key = Self::key_prompt(self.name(), theme);
+
+        if !Confirm::with_theme(&ColorfulTheme::default())
+            .with_prompt("Save it to the keyring?")
+            .interact()
+            .unwrap_or(false)
+        {
+            return Ok(key);
+        }
+
+        if let Err(err) = entry.set_password(&key) {
+            eprintln!("Failed to use keyring: {err}");
+        }
+
+        Ok(key)
+    }
+
     pub fn api_key(&self, theme: &dyn Theme) -> String {
-        // collect the IMDB api key
-        let entry = keyring::Entry::new(&format!("mdb-search-{}", self.name()), "none");
-
-        // get the saved API key
-        let api_key = entry.get_password().unwrap_or_else(|_| {
-            // read from stdin
-            let key = Password::with_theme(theme)
-                .with_prompt(format!("{} API key", self.name()))
-                .interact()
-                .unwrap();
-
-            // ask to save
-            if Confirm::with_theme(&ColorfulTheme::default())
-                .with_prompt("Save it to the keyring?")
-                .interact()
-                .unwrap()
-            {
-                // save
-                if let Err(err) = entry.set_password(&key) {
-                    eprintln!("Failed to write: {err}");
-                }
+        let key = match self.try_api_key(theme) {
+            Ok(key) => key,
+            Err(err) => {
+                eprintln!("Failed to use keyring: {err}");
+                Self::key_prompt(self.name(), theme)
             }
-
-            key
-        });
+        };
 
         // url encode it, because it will be used in requests
-        urlencoding::encode(&api_key).to_string()
+        urlencoding::encode(&key).to_string()
     }
 }
 

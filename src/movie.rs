@@ -17,7 +17,9 @@ pub struct Movie {
 
 impl fmt::Display for Movie {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "`")?;
+        if !f.alternate() {
+            write!(f, "`")?;
+        }
 
         let mut first = true;
         let mut sep = |f: &mut fmt::Formatter| {
@@ -43,9 +45,8 @@ impl fmt::Display for Movie {
             write!(f, "[{}-{}]", self.db, self.id)?;
         }
 
-        write!(f, "`")?;
-
         if !f.alternate() {
+            write!(f, "`")?;
             write!(
                 f,
                 "\n - {}",

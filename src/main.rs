@@ -1,4 +1,3 @@
-use clipboard::ClipboardProvider;
 use dialoguer::{theme::ColorfulTheme, FuzzySelect, Input};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
@@ -16,15 +15,14 @@ mod style;
 //
 
 fn main() -> ! {
+    _ = dotenv::dotenv();
+
     let theme = ColorfulTheme::default();
 
     let db = db::select();
-
     let style = style::select(&theme);
-
-    let mut cb = cb::init(&theme);
-
     let api_key = db.api_key(&theme);
+    let mut cb = cb::init(&theme);
 
     loop {
         let search: String = Input::with_theme(&ColorfulTheme::default())
