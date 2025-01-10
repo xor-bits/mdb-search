@@ -51,6 +51,7 @@
 
             xorg.libxcb
             openssl
+            wayland
           ];
           buildInputs = with pkgs; [
             openssl
